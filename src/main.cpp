@@ -84,7 +84,7 @@ void updateSensorData() {
 }
 
 void dailyACturnOff() {
-  if ( (hour(updated_local_time) == 4) && (minute(updated_local_time) >= 30) && ac.getPower()) {
+  if ( (hour(updated_local_time) == 4) && (minute(updated_local_time) == 30) && ac.getPower()) {
     Blynk.virtualWrite(V2, 0);
     ac.off();
     ac.send(); 
@@ -112,36 +112,49 @@ BLYNK_WRITE(InternalPinRTC) {   //check the value of InternalPinRTC
 
 BLYNK_WRITE(V2)
 {   
-  if(param.asInt() == 1)
+  if(param.asInt())
   {
     ac.on();
-    ac.send();
+    Serial.println("Turning ON AC");
   }
   else
   {
     ac.off();
-    ac.send(); 
+    Serial.println("Turning OFF AC");
   }
+  
+  ac.send(); 
 }
 
 BLYNK_WRITE(V3)
-{   
-  ac.setTemp(param.asInt());
-  ac.send();
+{ 
+  int setTemperature = param.asInt();
+  ac.setTemp(setTemperature);
+  Serial.println("Temperature set to: " + String(setTemperature) + "C");
+  
+  if (ac.getPower())  
+  {
+    ac.send();
+  }
 }
 
 
 BLYNK_WRITE(V4)
 {   
-  if(param.asInt() == 1)
+  if(param.asInt())  
   {
     ac.setMode(kSharpAcDry);
-    ac.send();
+    Serial.println("set to Dry mode");
   }
-  else
+  else  
   {
     ac.setMode(kSharpAcCool);
-    ac.send(); 
+    Serial.println("set to Cool mode");
+  }
+
+  if (ac.getPower())  
+  {
+    ac.send();
   }
 }
 
