@@ -49,10 +49,6 @@ void updateSensorData() {
   }
 }
 
-void timerFunction() {
-  updateSensorData();
-}
-
 BLYNK_CONNECTED() {
   Blynk.syncVirtual(V2);
 }
@@ -82,7 +78,7 @@ void setup() {
   ac.setIon(false);
   ac.setTurbo(false);
 
-  sensor_timer.setInterval(10000L, timerFunction);
+  sensor_timer.setInterval(10000L, updateSensorData);
   button_timer.setInterval(100L, checkPhysicalButton);
 }
 
