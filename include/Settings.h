@@ -14,7 +14,7 @@
 
   #define BOARD_LED_PIN               2
   #define BOARD_LED_INVERSE           true
-  #define BOARD_LED_BRIGHTNESS        255
+  #define BOARD_LED_BRIGHTNESS        64
 
 #elif defined(USE_SPARKFUN_BLYNK_BOARD)
 
@@ -39,7 +39,7 @@
 
   #warning "Custom board configuration is used"
 
-  #define BOARD_BUTTON_PIN            1                     // Pin where user button is attached
+  #define BOARD_BUTTON_PIN            0                     // Pin where user button is attached
   #define BOARD_BUTTON_ACTIVE_LOW     true                  // true if button is "active-low"
 
   //#define BOARD_LED_PIN             4                     // Set LED pin - if you have a single-color LED attached

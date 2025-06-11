@@ -3,14 +3,16 @@
 #include <Wire.h>
 #include <Adafruit_AHTX0.h>
 
-#define _IR_ENABLE_DEFAULT_ true
-#define SEND_SHARP_AC true
-#define IR_LED_PIN  3
+#define IR_LED_PIN  13
 
 #define BLYNK_TEMPLATE_ID "TMPL6Y5x4UMja"
 #define BLYNK_TEMPLATE_NAME "SharpAC Switch"
 
 #define BLYNK_FIRMWARE_VERSION "1.0.0"
+#define USE_WEMOS_D1_MINI
+
+#define BLYNK_PRINT Serial
+#define APP_DEBUG
 
 #include "BlynkEdgent.h"
 #include <IRremoteESP8266.h>
@@ -86,7 +88,6 @@ BLYNK_WRITE(V2)
 
 void setup() {
   initAC();
-  Wire.begin(2,0);
   aht.begin();
 
   BlynkEdgent.begin();
