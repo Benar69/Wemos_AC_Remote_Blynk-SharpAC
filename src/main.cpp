@@ -1,32 +1,51 @@
 #include <Arduino.h>
-#include <ir_Sharp.h>
+
 #include <Wire.h>
 #include <Adafruit_AHTX0.h>
 
+#define _IR_ENABLE_DEFAULT_ true
+#define SEND_SHARP_AC true
 #define IR_LED_PIN  3
-
-#define BOARD_BUTTON_PIN 4
-#define BOARD_BUTTON_ACTIVE_LOW true
-#define BOARD_LED_PIN 2
-#define BOARD_LED_INVERSE true
-#define BOARD_LED_BRIGHTNESS 255
 
 #define BLYNK_TEMPLATE_ID "TMPL6Y5x4UMja"
 #define BLYNK_TEMPLATE_NAME "SharpAC Switch"
 
-#define BLYNK_FIRMWARE_VERSION                                                                                                                                                                                                                                                                                                                                                                                                "0.1.0"
+#define BLYNK_FIRMWARE_VERSION "1.0.0"
 
-#define BLYNK_PRINT Serial
-
-#define APP_DEBUG
-
-#define USE_WEMOS_D1_MINI
 #include "BlynkEdgent.h"
+#include <IRremoteESP8266.h>
+#include <IRsend.h>
+#include <ir_Sharp.h>
 
-BlynkTimer timer;
+BlynkTimer sensor_timer;
+BlynkTimer button_timer;
 
 IRSharpAc ac(IR_LED_PIN);  // Set the GPIO to be used for sending messages.
 Adafruit_AHTX0 aht;
+
+int btnState = HIGH;
+
+void checkPhysicalButton()
+{
+  if (digitalRead(BOARD_BUTTON_PIN) == LOW) {
+    // btnState is used to avoid sequential toggles
+    if (btnState != LOW) {
+
+      // Toggle AC power State
+      bool power_state = ac.getPower();
+
+      if(power_state) ac.off();
+      else ac.on();
+
+      // Update Button Widget
+      Blynk.virtualWrite(V2, power_state);
+    }
+    btnState = LOW;
+  } 
+  else {
+    btnState = HIGH;
+  }
+}
 
 void initAC() {
   ac.begin();
@@ -58,10 +77,6 @@ BLYNK_CONNECTED() {
   Blynk.sendInternal("rtc", "sync"); //request current local time for device
 }
 
-BLYNK_WRITE(InternalPinRTC) {   //check the value of InternalPinRTC  
-  unsigned long t = param.asLong();      //store time in t variable
-}
-
 BLYNK_WRITE(V2)
 {  
   if(param.asInt() == 1)  ac.on();
@@ -76,10 +91,12 @@ void setup() {
 
   BlynkEdgent.begin();
 
-  timer.setInterval(10000L, timerFunction);
+  sensor_timer.setInterval(10000L, timerFunction);
+  button_timer.setInterval(100L, checkPhysicalButton);
 }
 
 void loop() {
   BlynkEdgent.run();
-  timer.run(); 
+  sensor_timer.run();
+  button_timer.run();
 }
