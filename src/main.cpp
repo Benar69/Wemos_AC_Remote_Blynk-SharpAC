@@ -65,14 +65,22 @@ BLYNK_WRITE(V2) {
 }
 
 void setup() {
+  Serial.begin(115200);
+  delay(500);
+  
   BlynkEdgent.begin();
-
+  
   if (!aht.begin()) {
     Serial.println("AHT10 sensor not found!");
     while (1); // halt system or handle gracefully
   }
 
   ac.begin();
+  ac.setTemp(25);
+  ac.setFan(kSharpAcFanAuto);
+  ac.setSwingV(kSharpAcSwingVMid);
+  ac.setIon(false);
+  ac.setTurbo(false);
 
   sensor_timer.setInterval(10000L, timerFunction);
   button_timer.setInterval(100L, checkPhysicalButton);
