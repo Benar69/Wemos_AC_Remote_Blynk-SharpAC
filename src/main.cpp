@@ -100,7 +100,7 @@ void setup() {
   ac.setTurbo(false);
 
   sensor_timer.setInterval(10000L, updateSensorData);
-  button_timer.setInterval(100L, checkPhysicalButton);
+  button_timer.setInterval(50L, checkPhysicalButton);
 }
 
 void loop() {
