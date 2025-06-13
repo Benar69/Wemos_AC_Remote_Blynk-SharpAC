@@ -25,10 +25,12 @@ IRSharpAc ac(IR_LED_PIN);
 Adafruit_AHTX0 aht;
 
 int btnState = LOW;
+const uint16_t phys_button_debounce_time_ms = 500;
+unsigned long last_phys_button_triggered_time = 0;
 
 void checkPhysicalButton() {
   if (digitalRead(PHYS_BUTTON_PIN) == HIGH) {
-    if (btnState != HIGH) {
+    if (btnState != HIGH && millis() - last_phys_button_triggered_time >= phys_button_debounce_time_ms) {
       bool power_state = ac.getPower();
 
       if (power_state) {
@@ -42,6 +44,7 @@ void checkPhysicalButton() {
 
       ac.send();
       Blynk.virtualWrite(V2, !power_state);
+      last_phys_button_triggered_time = millis();
     }
     btnState = HIGH;
   } else {

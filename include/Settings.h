@@ -14,7 +14,7 @@
 
   #define BOARD_LED_PIN               2
   #define BOARD_LED_INVERSE           true
-  #define BOARD_LED_BRIGHTNESS        64
+  #define BOARD_LED_BRIGHTNESS        155
 
 #elif defined(USE_SPARKFUN_BLYNK_BOARD)
 
