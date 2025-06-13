@@ -57,7 +57,7 @@ void updateSensorData() {
   aht.getEvent(&humidity, &temp);
 
   if (!isnan(temp.temperature) && !isnan(humidity.relative_humidity)) {
-    Serial.printf("Temperature: %.1fC | Humidity: %.1f%%", temp.temperature, humidity.relative_humidity);
+    Serial.printf("Temperature: %.1fC | Humidity: %.1f%%\n", temp.temperature, humidity.relative_humidity);
     Blynk.virtualWrite(V1, humidity.relative_humidity);
     Blynk.virtualWrite(V0, temp.temperature);
   }
