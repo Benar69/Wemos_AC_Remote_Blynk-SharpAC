@@ -1,6 +1,6 @@
 #include <Arduino.h>
 #include <Wire.h>
-#include <Adafruit_AHTX0.h>
+#include <AHTxx.h>
 
 #define IR_LED_PIN 13
 #define PHYS_BUTTON_PIN 12
@@ -22,7 +22,9 @@ BlynkTimer sensor_timer;
 BlynkTimer button_timer;
 
 IRSharpAc ac(IR_LED_PIN);
-Adafruit_AHTX0 aht;
+float ahtValue;                               //to store T/RH result
+
+AHTxx aht10(AHTXX_ADDRESS_X38, AHT1x_SENSOR);
 
 int btnState = LOW;
 const uint16_t phys_button_debounce_time_ms = 500;
@@ -53,14 +55,37 @@ void checkPhysicalButton() {
 }
 
 void updateSensorData() {
-  sensors_event_t humidity, temp;
-  aht.getEvent(&humidity, &temp);
-
-  if (!isnan(temp.temperature) && !isnan(humidity.relative_humidity)) {
-    Serial.printf("Temperature: %.1fC | Humidity: %.1f%%\n", temp.temperature, humidity.relative_humidity);
-    Blynk.virtualWrite(V1, humidity.relative_humidity);
-    Blynk.virtualWrite(V0, temp.temperature);
+  ahtValue = aht10.readTemperature(); //read 6-bytes via I2C, takes 80 milliseconds
+  
+  Serial.print(F("Temperature...: "));
+  if (ahtValue != AHTXX_ERROR) //AHTXX_ERROR = 255, library returns 255 if error occurs
+  {
+    Blynk.virtualWrite(V0, ahtValue);
+    Serial.print(ahtValue);
+    Serial.println(F(" +-0.3C"));
   }
+  else
+  {
+    if   (aht10.softReset() == true) Serial.println(F("reset success")); //as the last chance to make it alive
+    else                             Serial.println(F("reset failed"));
+  }
+
+  ahtValue = aht10.readHumidity(AHTXX_USE_READ_DATA); //use 6-bytes from temperature reading, takes zero milliseconds!!!
+
+  Serial.print(F("Humidity......: "));
+  
+  if (ahtValue != AHTXX_ERROR) //AHTXX_ERROR = 255, library returns 255 if error occurs
+  {
+    Blynk.virtualWrite(V1, ahtValue);
+    Serial.print(ahtValue);
+    Serial.println(F(" +-2%"));
+  }
+  else
+  {
+    if   (aht10.softReset() == true) Serial.println(F("reset success")); //as the last chance to make it alive
+    else                             Serial.println(F("reset failed"));
+  }
+
 }
 
 BLYNK_CONNECTED() {
@@ -88,9 +113,12 @@ void setup() {
 
   BlynkEdgent.begin();
   
-  if (!aht.begin()) {
-    Serial.println("AHT10 sensor not found!");
-    while (1); // halt system or handle gracefully
+  if (aht10.begin() == true) {
+    sensor_timer.setInterval(10000L, updateSensorData);
+    
+  }
+  else {
+    Serial.println(F("AHT1x not connected or fail to load calibration coefficient")); //(F()) save string to flash & keeps dynamic memory free
   }
 
   ac.begin();
@@ -100,7 +128,7 @@ void setup() {
   ac.setIon(false);
   ac.setTurbo(false);
 
-  sensor_timer.setInterval(10000L, updateSensorData);
+  
   button_timer.setInterval(50L, checkPhysicalButton);
 }
 
