@@ -3,6 +3,7 @@
 #include <Adafruit_AHTX0.h>
 
 #define IR_LED_PIN 13
+#define PHYS_BUTTON_PIN 12
 
 #define BLYNK_TEMPLATE_ID "TMPL6Y5x4UMja"
 #define BLYNK_TEMPLATE_NAME "SharpAC Switch"
@@ -23,19 +24,28 @@ BlynkTimer button_timer;
 IRSharpAc ac(IR_LED_PIN);
 Adafruit_AHTX0 aht;
 
-int btnState = HIGH;
+int btnState = LOW;
 
 void checkPhysicalButton() {
-  if (digitalRead(BOARD_BUTTON_PIN) == LOW) {
-    if (btnState != LOW) {
+  if (digitalRead(PHYS_BUTTON_PIN) == HIGH) {
+    if (btnState != HIGH) {
       bool power_state = ac.getPower();
-      power_state ? ac.off() : ac.on();
+
+      if (power_state) {
+        Serial.println("AC turned off by button.");
+        ac.off();
+      }
+      else{
+        Serial.println("AC turned on by button.");
+        ac.on();
+      }
+
       ac.send();
       Blynk.virtualWrite(V2, !power_state);
     }
-    btnState = LOW;
-  } else {
     btnState = HIGH;
+  } else {
+    btnState = LOW;
   }
 }
 
@@ -44,7 +54,7 @@ void updateSensorData() {
   aht.getEvent(&humidity, &temp);
 
   if (!isnan(temp.temperature) && !isnan(humidity.relative_humidity)) {
-    Blynk.virtualWrite(V0, temp.temperature);
+    Serial.printf("Temperature: %.1fC | Humidity: %.1f%%", temp.temperature, humidity.relative_humidity);
     Blynk.virtualWrite(V1, humidity.relative_humidity);
   }
 }
@@ -54,8 +64,14 @@ BLYNK_CONNECTED() {
 }
 
 BLYNK_WRITE(V2) {
-  if (param.asInt() == 1) ac.on();
-  else ac.off();
+  if (param.asInt() == 1) {
+    ac.on();
+    Serial.println("AC turned on.");
+  }
+  else{
+    ac.off();
+    Serial.println("AC turned off.");
+  } 
   
   ac.send();
 }
@@ -63,7 +79,9 @@ BLYNK_WRITE(V2) {
 void setup() {
   Serial.begin(115200);
   delay(500);
-  
+
+  pinMode(PHYS_BUTTON_PIN, INPUT);
+
   BlynkEdgent.begin();
   
   if (!aht.begin()) {
