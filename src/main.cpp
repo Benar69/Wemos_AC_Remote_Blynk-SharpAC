@@ -5,6 +5,7 @@
 #define IR_LED_PIN 13
 #define PHYS_BUTTON_PIN 12
 
+#define TEMP_OFFSET_C 5.5
 #define BLYNK_TEMPLATE_ID "TMPL6Y5x4UMja"
 #define BLYNK_TEMPLATE_NAME "SharpAC Switch"
 #define BLYNK_FIRMWARE_VERSION "1.0.0"
@@ -85,7 +86,7 @@ void checkPhysicalButton() {
 }
 
 void updateSensorData() {
-  ahtValue = aht10.readTemperature(); //read 6-bytes via I2C, takes 80 milliseconds
+  ahtValue = aht10.readTemperature() - TEMP_OFFSET_C; //read 6-bytes via I2C, takes 80 milliseconds
   
   Serial.print(F("Temperature...: "));
   if (ahtValue != AHTXX_ERROR) //AHTXX_ERROR = 255, library returns 255 if error occurs
