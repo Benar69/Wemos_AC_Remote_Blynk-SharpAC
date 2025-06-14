@@ -30,6 +30,36 @@ int btnState = LOW;
 const uint16_t phys_button_debounce_time_ms = 500;
 unsigned long last_phys_button_triggered_time = 0;
 
+void printStatus()
+{
+  switch (aht10.getStatus())
+  {
+    case AHTXX_NO_ERROR:
+      Serial.println(F("no error"));
+      break;
+
+    case AHTXX_BUSY_ERROR:
+      Serial.println(F("sensor busy, increase polling time"));
+      break;
+
+    case AHTXX_ACK_ERROR:
+      Serial.println(F("sensor didn't return ACK, not connected, broken, long wires (reduce speed), bus locked by slave (increase stretch limit)"));
+      break;
+
+    case AHTXX_DATA_ERROR:
+      Serial.println(F("received data smaller than expected, not connected, broken, long wires (reduce speed), bus locked by slave (increase stretch limit)"));
+      break;
+
+    case AHTXX_CRC8_ERROR:
+      Serial.println(F("computed CRC8 not match received CRC8, this feature supported only by AHT2x sensors"));
+      break;
+
+    default:
+      Serial.println(F("unknown status"));    
+      break;
+  }
+}
+
 void checkPhysicalButton() {
   if (digitalRead(PHYS_BUTTON_PIN) == HIGH) {
     if (btnState != HIGH && millis() - last_phys_button_triggered_time >= phys_button_debounce_time_ms) {
@@ -66,6 +96,8 @@ void updateSensorData() {
   }
   else
   {
+    printStatus();
+
     if   (aht10.softReset() == true) Serial.println(F("reset success")); //as the last chance to make it alive
     else                             Serial.println(F("reset failed"));
   }
@@ -82,6 +114,8 @@ void updateSensorData() {
   }
   else
   {
+    printStatus();
+    
     if   (aht10.softReset() == true) Serial.println(F("reset success")); //as the last chance to make it alive
     else                             Serial.println(F("reset failed"));
   }
@@ -90,6 +124,15 @@ void updateSensorData() {
 
 BLYNK_CONNECTED() {
   Blynk.syncVirtual(V2);
+}
+
+BLYNK_WRITE(V3) {
+  uint8_t setTempC = param.asInt();
+  ac.setTemp(setTempC);
+  Serial.printf("AC Temp set to: %dC\n", setTempC);
+
+  if(ac.getPower()) ac.send();
+  
 }
 
 BLYNK_WRITE(V2) {
