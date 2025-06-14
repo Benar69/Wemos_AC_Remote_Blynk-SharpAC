@@ -5,7 +5,7 @@
 #define IR_LED_PIN 13
 #define PHYS_BUTTON_PIN 12
 
-#define TEMP_OFFSET_C 5.5
+#define TEMP_OFFSET_C 8
 #define BLYNK_TEMPLATE_ID "TMPL6Y5x4UMja"
 #define BLYNK_TEMPLATE_NAME "SharpAC Switch"
 #define BLYNK_FIRMWARE_VERSION "1.0.0"
