@@ -8,7 +8,7 @@
 #define TEMP_OFFSET_C 8
 #define BLYNK_TEMPLATE_ID "TMPL6Y5x4UMja"
 #define BLYNK_TEMPLATE_NAME "SharpAC Switch"
-#define BLYNK_FIRMWARE_VERSION "1.0.0"
+#define BLYNK_FIRMWARE_VERSION "2.0.4"
 
 #define USE_WEMOS_D1_MINI
 #define BLYNK_PRINT Serial
@@ -19,17 +19,34 @@
 #include <IRsend.h>
 #include <ir_Sharp.h>
 
+#define AC_AUTO 0
+#define AC_COOL 1
+#define AC_DRY 2
+
+// Virtual Pin Map:
+//   V0 → Sensor string "🌡 XX.X°C  💧 XX.X%"  (Label / Value Display widget)
+//   V1 → (free)
+//   V2 → Power switch  (Button widget, Switch mode)
+//   V3 → Set temperature  (Slider / Numeric Input widget)
+//   V4 → AC mode  (Segmented Switch widget: 0=Auto, 1=Cool, 2=Dry)
+
 BlynkTimer sensor_timer;
 BlynkTimer button_timer;
 
 IRSharpAc ac(IR_LED_PIN);
-float ahtValue;                               //to store T/RH result
 
 AHTxx aht10(AHTXX_ADDRESS_X38, AHT1x_SENSOR);
 
 int btnState = LOW;
+int current_mode = AC_AUTO;
 const uint16_t phys_button_debounce_time_ms = 500;
 unsigned long last_phys_button_triggered_time = 0;
+const char *mode_string[] = {"Auto", "Cool", "Dry"};
+
+float tempC = 0;
+float humidity = 0;
+
+bool on_sync = false;
 
 void printStatus()
 {
@@ -56,7 +73,7 @@ void printStatus()
       break;
 
     default:
-      Serial.println(F("unknown status"));    
+      Serial.println(F("unknown status"));
       break;
   }
 }
@@ -70,7 +87,7 @@ void checkPhysicalButton() {
         Serial.println("AC turned off by button.");
         ac.off();
       }
-      else{
+      else {
         Serial.println("AC turned on by button.");
         ac.on();
       }
@@ -85,68 +102,92 @@ void checkPhysicalButton() {
   }
 }
 
+void sendSensorStr() {
+  char sensorStr[64];
+  snprintf(sensorStr, sizeof(sensorStr), "Mode: %s   | Temp: %.1fC   Hum: %.1f%%", mode_string[current_mode], tempC, humidity);
+  Blynk.virtualWrite(V0, sensorStr);
+}
+
 void updateSensorData() {
-  ahtValue = aht10.readTemperature() - TEMP_OFFSET_C; //read 6-bytes via I2C, takes 80 milliseconds
-  
+  tempC   = aht10.readTemperature() - TEMP_OFFSET_C;
+  humidity = aht10.readHumidity(AHTXX_USE_READ_DATA);
+
+  bool tempOk     = (tempC    != AHTXX_ERROR);
+  bool humidityOk = (humidity != AHTXX_ERROR);
+
+  // --- Serial feedback ---
   Serial.print(F("Temperature...: "));
-  if (ahtValue != AHTXX_ERROR) //AHTXX_ERROR = 255, library returns 255 if error occurs
-  {
-    Blynk.virtualWrite(V0, ahtValue);
-    Serial.print(ahtValue);
-    Serial.println(F(" +-0.3C"));
-  }
-  else
-  {
-    printStatus();
-
-    if   (aht10.softReset() == true) Serial.println(F("reset success")); //as the last chance to make it alive
-    else                             Serial.println(F("reset failed"));
-  }
-
-  ahtValue = aht10.readHumidity(AHTXX_USE_READ_DATA); //use 6-bytes from temperature reading, takes zero milliseconds!!!
+  if (tempOk) { Serial.print(tempC);    Serial.println(F(" +-0.3C")); }
+  else        { printStatus(); if (aht10.softReset()) Serial.println(F("reset success")); else Serial.println(F("reset failed")); }
 
   Serial.print(F("Humidity......: "));
-  
-  if (ahtValue != AHTXX_ERROR) //AHTXX_ERROR = 255, library returns 255 if error occurs
-  {
-    Blynk.virtualWrite(V1, ahtValue);
-    Serial.print(ahtValue);
-    Serial.println(F(" +-2%"));
-  }
-  else
-  {
-    printStatus();
-    
-    if   (aht10.softReset() == true) Serial.println(F("reset success")); //as the last chance to make it alive
-    else                             Serial.println(F("reset failed"));
-  }
+  if (humidityOk) { Serial.print(humidity); Serial.println(F(" +-2%")); }
+  else            { printStatus(); if (aht10.softReset()) Serial.println(F("reset success")); else Serial.println(F("reset failed")); }
 
+  // --- Pack both values into a single string and send on V0 ---
+  if (tempOk && humidityOk) {
+    sendSensorStr();
+  }
 }
 
 BLYNK_CONNECTED() {
-  Blynk.syncVirtual(V2);
-}
+  on_sync = true;
 
-BLYNK_WRITE(V3) {
-  uint8_t setTempC = param.asInt();
-  ac.setTemp(setTempC);
-  Serial.printf("AC Temp set to: %dC\n", setTempC);
+  Blynk.syncVirtual(V2);  // Sync the power mode 
+  Blynk.syncVirtual(V3);  // Set Temperature
+  Blynk.syncVirtual(V4);  // Set Mode
 
-  if(ac.getPower()) ac.send();
+  ac.send();
   
+  on_sync = false;
 }
 
+// Power switch
 BLYNK_WRITE(V2) {
   if (param.asInt() == 1) {
     ac.on();
     Serial.println("AC turned on.");
   }
-  else{
+  else {
     ac.off();
     Serial.println("AC turned off.");
-  } 
-  
-  ac.send();
+  }
+  if (!on_sync) ac.send();
+}
+
+// Set temperature
+BLYNK_WRITE(V3) {
+  uint8_t setTempC = param.asInt();
+  ac.setTemp(setTempC);
+  Serial.printf("AC Temp set to: %dC\n", setTempC);
+  if (ac.getPower() && !on_sync) ac.send();
+}
+
+// AC mode: 0 = Auto, 1 = Cool, 2 = Dry
+BLYNK_WRITE(V4) {
+  int mode = param.asInt();
+  switch (mode) {
+    case 0:
+      ac.setMode(kSharpAcAuto);
+      current_mode = AC_AUTO;
+      Serial.println("AC Mode: Auto");
+      break;
+    case 1:
+      ac.setMode(kSharpAcCool);
+      current_mode = AC_COOL;
+      Serial.println("AC Mode: Cool");
+      break;
+    case 2:
+      ac.setMode(kSharpAcDry);
+      current_mode = AC_DRY;
+      Serial.println("AC Mode: Dry");
+      break;
+    default:
+      Serial.printf("AC Mode: unknown value %d\n", mode);
+      break;
+  }
+  sendSensorStr();
+  if (ac.getPower() && !on_sync) ac.send();
 }
 
 void setup() {
@@ -156,23 +197,22 @@ void setup() {
   pinMode(PHYS_BUTTON_PIN, INPUT);
 
   BlynkEdgent.begin();
-  
+
   if (aht10.begin() == true) {
     sensor_timer.setInterval(10000L, updateSensorData);
-    
   }
   else {
-    Serial.println(F("AHT1x not connected or fail to load calibration coefficient")); //(F()) save string to flash & keeps dynamic memory free
+    Serial.println(F("AHT1x not connected or fail to load calibration coefficient"));
   }
 
   ac.begin();
   ac.setTemp(25);
+  ac.setMode(kSharpAcAuto);
   ac.setFan(kSharpAcFanAuto);
   ac.setSwingV(kSharpAcSwingVMid);
   ac.setIon(false);
   ac.setTurbo(false);
 
-  
   button_timer.setInterval(50L, checkPhysicalButton);
 }
 
